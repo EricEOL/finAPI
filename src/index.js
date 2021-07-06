@@ -7,6 +7,21 @@ app.use(express.json());
 
 const customers = [];
 
+//Middleware
+function verifyIfExistsAccount(req, res, next) {
+  const { cpf } = req.headers;
+
+  const customer = customers.find(customer => customer.cpf === cpf);
+
+  if(!customer) {
+    return res.status(400).json({error: "Customer not found"});
+  }
+
+  req.customer = customer;
+
+  return next();
+}
+
 app.post('/account', (req, res) => {
   const { cpf, name } = req.body;
 
@@ -25,16 +40,26 @@ app.post('/account', (req, res) => {
   return res.status(201).send();
 })
 
-app.get('/statement/', (req, res) => {
-  const { cpf } = req.headers;
+app.get('/statement/', verifyIfExistsAccount, (req, res) => {
+  const { customer } = req;
 
-  const customer = customers.find(customer => customer.cpf === cpf);
+  return res.json(customer.statement);
+})
 
-  if(!customer) {
-    return res.status(400).json({error: "Customer not found"});
+app.post('/deposit', verifyIfExistsAccount, (req, res) => {
+  const { description, amount } = req.body;
+  const { customer } = req;
+
+  const statementOperation = {
+    description,
+    amount,
+    created_at: new Date(),
+    type: "credit"
   }
 
-  res.json(customer.statement);
+  customer.statement.push(statementOperation);
+
+  return res.status(201).send();
 })
 
 app.listen(3333, () => console.log('Nodeapp running'));
